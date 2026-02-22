@@ -1,0 +1,34 @@
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Build artifacts
+*.skill
+dist/
+build/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.Python
+venv/
+ENV/
+
+# Logs
+*.log
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+
+.claude/
