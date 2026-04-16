@@ -322,6 +322,73 @@ Circle()
 
 ---
 
+### Scoped Animation for Generic Containers (iOS 17+)
+
+When building generic containers that accept arbitrary child content, use `animation(_:body:)` to scope the animation to specific attributes. This prevents unintended animation propagation to child content.
+
+```swift
+// GOOD — only opacity animates, child content is unaffected
+struct LockableContentCard<Content: View>: View {
+    var isUnlocked: Bool
+    @ViewBuilder var content: Content
+    
+    var body: some View {
+        content
+            .padding()
+            .background(.secondary)
+            .animation(.default) {
+                $0.opacity(isUnlocked ? 1 : 0.4)
+            }
+    }
+}
+
+// BAD — animation propagates to ALL child attributes
+struct LockableContentCard<Content: View>: View {
+    var isUnlocked: Bool
+    @ViewBuilder var content: Content
+    
+    var body: some View {
+        content
+            .padding()
+            .background(.secondary)
+            .opacity(isUnlocked ? 1 : 0.4)
+            .animation(.default, value: isUnlocked)
+            // If child content also depends on isUnlocked,
+            // those changes get animated too — may be undesirable
+    }
+}
+```
+
+**When to use**: Generic containers, reusable components, any view that accepts `@ViewBuilder` content where you want to guarantee only your own modifiers animate.
+
+### Custom Animatable Performance Cost
+
+Custom `Animatable` conformances run `body` for every frame of the animation, executing on the main thread. Built-in effects (offset, scale, rotation, opacity) are highly optimized and often perform off the main thread.
+
+```swift
+// EXPENSIVE — body runs 60+ times per second during animation
+struct CountingView: View, Animatable {
+    var value: Double
+    var animatableData: Double {
+        get { value }
+        set { value = newValue }
+    }
+    
+    var body: some View {
+        Text("\(Int(value))")  // Called every frame!
+    }
+}
+
+// PREFERRED — built-in transforms are GPU-accelerated
+Circle()
+    .scaleEffect(isExpanded ? 1.2 : 1.0)  // Off main thread
+    .opacity(isVisible ? 1 : 0)             // Off main thread
+```
+
+**Rule**: Only use custom `Animatable` when built-in effects cannot achieve the desired result. Prefer transforms (`offset`, `scaleEffect`, `rotationEffect`, `opacity`) over layout changes (`frame`) for animation performance.
+
+---
+
 ## Quick Reference
 
 ### Transactions (All iOS versions)
@@ -349,3 +416,9 @@ Circle()
 - Use `withAnimation(.animation) { } completion: { }` for one-shot completion handlers
 - Use `.transaction(value:)` for handlers that should refire on every value change
 - Without `value:` parameter, completion only fires once
+
+### Scoped Animations (iOS 17+)
+- `animation(_:body:)` (iOS 17+): Scope animation to specific attributes within the closure, preventing propagation to child content
+
+### Custom Animatable
+- Custom `Animatable`: Runs body every frame on main thread — use only when built-in effects are insufficient

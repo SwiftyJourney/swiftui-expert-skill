@@ -270,6 +270,164 @@ struct ItemRow: View {
 
 **When performance issues arise**, suggest the user profile with Instruments (SwiftUI template) to identify specific bottlenecks.
 
+### View Initialization Costs
+
+SwiftUI view initialization is a high-frequency event. The framework frequently creates new view structs to determine if a state change requires a body re-evaluation. Any work in `init` runs on every parent update.
+
+```swift
+// BAD — side effect in init, runs on every parent update
+struct WeatherView: View {
+    @State private var provider = WeatherProvider()
+    
+    init() {
+        provider.startSync()  // Called repeatedly!
+    }
+    
+    var body: some View {
+        Text("Current: \(provider.temperature)")
+    }
+}
+
+// GOOD — lifecycle-tied async work
+struct WeatherView: View {
+    @State private var provider = WeatherProvider()
+    
+    var body: some View {
+        Text("Current: \(provider.temperature)")
+            .task {
+                await provider.startSync()
+            }
+    }
+}
+```
+
+**Rules:**
+- View initializers must be cheap — simple value assignment only
+- Never create Tasks, start timers, or trigger side effects in `init`
+- Move expensive work to `.task` or `.onAppear`
+- Prefer compiler-generated memberwise initializers over custom `init`
+
+### Structural Identity Preservation
+
+Preserving view identity across state changes prevents unnecessary teardown/rebuild cycles.
+
+```swift
+// BAD — if/else destroys and recreates views
+VStack {
+    if isStudyMode {
+        BirdPhotoView(bird: bird)
+            .grayscale(1.0)
+    } else {
+        BirdPhotoView(bird: bird)
+    }
+}
+
+// GOOD — modifiers with ternary, single stable view
+VStack {
+    BirdPhotoView(bird: bird)
+        .grayscale(isStudyMode ? 1.0 : 0)
+}
+
+// GOOD — AnyLayout for dynamic layout changes
+struct FeaturedBirdsView: View {
+    @Environment(\.horizontalSizeClass) private var sizeClass
+    
+    private var layout: AnyLayout {
+        sizeClass == .regular
+            ? AnyLayout(HStackLayout())
+            : AnyLayout(VStackLayout())
+    }
+    
+    var body: some View {
+        layout {
+            ForEach(birds) { bird in
+                BirdCard(bird: bird)  // Identity preserved across layout change
+            }
+        }
+    }
+}
+
+// GOOD — opacity toggle for expensive views with loaded state
+ZStack {
+    WeatherInfo()
+        .opacity(showWeather ? 1 : 0)
+    SiteAccessInfo()
+        .opacity(showWeather ? 0 : 1)
+}
+```
+
+### Modern Geometry Observation
+
+Prefer targeted geometry modifiers over `GeometryReader`:
+
+```swift
+// GOOD — onGeometryChange for specific measurement
+Text(description)
+    .onGeometryChange(for: CGFloat.self) { proxy in
+        proxy.size.height
+    } action: {
+        contentHeight = $0
+    }
+    .presentationDetents([.height(contentHeight)])
+
+// GOOD — visualEffect for high-frequency transforms (no body re-evaluation)
+LandmarkImage(url: url)
+    .visualEffect { effect, geometry in
+        let scrollOffset = geometry.frame(in: .scrollView).minY
+        let scale = 1 + max(0, scrollOffset) / geometry.size.height
+        return effect.scaleEffect(x: scale, y: scale, anchor: .bottom)
+    }
+
+// AVOID — GeometryReader alters layout
+GeometryReader { proxy in
+    content.frame(width: proxy.size.width * 0.8)
+}
+
+// DANGER — feedback loop with geometry observer
+.onGeometryChange(for: CGFloat.self) { $0.size.width } action: { viewWidth = $0 }
+.frame(width: viewWidth > 300 ? 250 : nil)  // Output feeds back into measurement!
+```
+
+**Rules:**
+- `onGeometryChange` for driving state from geometry (detents, conditional layout)
+- `visualEffect` for high-frequency visual transforms that don't need state (parallax, stretchy headers)
+- Geometry observer output must NOT serve as a layout constraint for its own source view
+- Use `containerRelativeFrame()` for simple relative sizing
+
+### Expensive Computed Properties in Body
+
+Cache data transformations in `@Observable` models instead of recomputing on every body evaluation:
+
+```swift
+// BAD — sorting runs on every body evaluation, even for unrelated state changes
+struct BirdRegistryView: View {
+    @State private var birdNames: [String] = []
+    @State private var sightings: [String: Int] = [:]
+    
+    private var sortedBirds: [String] {
+        birdNames.sorted()  // Runs on every sighting increment!
+    }
+    
+    var body: some View {
+        List(sortedBirds, id: \.self) { name in
+            Text(name)
+            RecordButton(sightings: $sightings, name: name)
+        }
+    }
+}
+
+// GOOD — cache in model, transform only when source changes
+@Observable @MainActor
+final class BirdRegistryViewModel {
+    var birdNames: [String] = []
+    var sortedBirds: [String] = []
+    
+    func sortBirds() {
+        sortedBirds = birdNames.sorted()
+    }
+}
+```
+
 ## Anti-Patterns
 
 ### 1. Creating Objects in Body
@@ -375,3 +533,8 @@ var itemCount: Int { items.count }  // Computed property
 - [ ] Use `Self._printChanges()` to debug unexpected updates
 - [ ] Equatable conformance for expensive views (when appropriate)
 - [ ] Consider POD view wrappers for advanced optimization
+- [ ] View initializers are cheap (no side effects, no Task creation)
+- [ ] Structural identity preserved (no if/else for style changes, use AnyLayout)
+- [ ] Geometry observation uses onGeometryChange or visualEffect (not GeometryReader)
+- [ ] No geometry feedback loops
+- [ ] Expensive computations cached in models (not computed properties accessed in body)

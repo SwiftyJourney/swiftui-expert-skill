@@ -6,6 +6,7 @@ View extraction, custom styles, specialized components, layout patterns, and reu
 - [Extract Subviews, Not Computed Properties](#extract-subviews-not-computed-properties)
 - [Prefer Modifiers Over Conditional Views](#prefer-modifiers-over-conditional-views)
 - [Container View Pattern](#container-view-pattern)
+- [Multi-Slot ViewBuilder Containers](#multi-slot-viewbuilder-containers)
 - [Custom View Styles](#custom-view-styles)
 - [Specialized Built-In Components](#specialized-built-in-components)
 - [ZStack vs overlay/background](#zstack-vs-overlaybackground)
@@ -13,6 +14,8 @@ View extraction, custom styles, specialized components, layout patterns, and reu
 - [Layout Principles](#layout-principles)
 - [View Logic and Testability](#view-logic-and-testability)
 - [Action Handlers](#action-handlers)
+- [Anti-Pattern: Conditional Modifier Helpers](#anti-pattern-conditional-modifier-helpers)
+- [Anti-Pattern: if/else in View Extensions](#anti-pattern-ifelse-in-view-extensions)
 
 ---
 
@@ -206,6 +209,44 @@ MyContainer {
 
 ---
 
+## Multi-Slot ViewBuilder Containers
+
+Containers accepting multiple `@ViewBuilder` parameters for different content slots:
+
+```swift
+struct CardView<Header: View, Content: View, Footer: View>: View {
+    @ViewBuilder let header: Header
+    @ViewBuilder let content: Content
+    @ViewBuilder let footer: Footer
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            header
+                .font(.headline)
+            content
+            Divider()
+            footer
+                .font(.caption)
+                .foregroundStyle(.secondary)
+        }
+        .padding()
+    }
+}
+
+// Usage
+CardView {
+    Text("Wildlife Observation")
+} content: {
+    Text("Spotted a kiwi near the trail entrance")
+} footer: {
+    Label("Today", systemImage: "calendar")
+}
+```
+
+This is the idiomatic SwiftUI pattern for slot-based composition. Each slot is a separate `@ViewBuilder` property, allowing SwiftUI to diff each independently.
+
+---
+
 ## Custom View Styles
 
 Build custom styles when the same visual pattern appears across multiple instances. SwiftUI's style protocols (`ButtonStyle`, `LabelStyle`, `ToggleStyle`, etc.) let you define reusable appearance without repeating modifier chains.
@@ -250,6 +291,38 @@ struct IconFirstLabelStyle: LabelStyle {
 Label("Settings", systemImage: "gear")
     .labelStyle(IconFirstLabelStyle())
 ```
+
+### Custom Styles for Structural Changes
+
+Styles can change layout **structure**, not just visual appearance:
+
+```swift
+// Custom ToggleStyle that changes structural arrangement
+struct VerticalToggleStyle: ToggleStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        VStack(spacing: 8) {
+            configuration.label
+                .font(.caption)
+            Button {
+                configuration.isOn.toggle()
+            } label: {
+                Image(systemName: configuration.isOn ? "checkmark.circle.fill" : "circle")
+                    .font(.title)
+                    .foregroundStyle(configuration.isOn ? .green : .secondary)
+            }
+        }
+    }
+}
+
+// Standard horizontal toggle
+Toggle("Notifications", isOn: $isOn)
+
+// Same toggle, vertical layout via style
+Toggle("Notifications", isOn: $isOn)
+    .toggleStyle(VerticalToggleStyle())
+```
+
+**Key insight**: Custom styles preserve the semantic meaning of the component (it's still a `Toggle` for accessibility) while completely changing the visual structure.
 
 **When to use**: three or more sites with the same visual pattern, or when the modifier chain becomes complex enough to obscure intent.
 
@@ -313,6 +386,62 @@ For key-value display in forms:
 LabeledContent("Version", value: appVersion)
 LabeledContent("Storage used") {
     Text(storageUsed, format: .byteCount(style: .file))
+}
+```
+
+### Grid
+
+`Grid` provides tabular layouts with alignment:
+
+```swift
+Grid(alignment: .leading) {
+    GridRow {
+        Text("Species")
+            .gridColumnAlignment(.trailing)
+        Text("Kiwi")
+    }
+    GridRow {
+        Text("Status")
+        Text("Endangered")
+            .foregroundStyle(.red)
+    }
+}
+```
+
+### ViewThatFits
+
+`ViewThatFits` enables adaptive content selection:
+
+```swift
+ViewThatFits {
+    // SwiftUI tries each view in order, picks the first that fits
+    Label("Add to Watchlist", systemImage: "binoculars")
+    Label("Add to Watchlist", systemImage: "binoculars")
+        .labelStyle(.iconOnly)
+}
+```
+
+### ContentUnavailableView
+
+`ContentUnavailableView` provides standardized empty states:
+
+```swift
+ContentUnavailableView(
+    "No Observations",
+    systemImage: "binoculars",
+    description: Text("Start recording wildlife observations to see them here.")
+)
+```
+
+### ControlGroup
+
+`ControlGroup` groups related controls together:
+
+```swift
+ControlGroup {
+    Button("Bold", systemImage: "bold") { }
+    Button("Italic", systemImage: "italic") { }
+    Button("Underline", systemImage: "underline") { }
 }
 ```
 
@@ -575,6 +704,72 @@ struct PublishView: View {
 
 ---
 
+## Anti-Pattern: Conditional Modifier Helpers
+
+```swift
+// DANGEROUS — breaks view identity on every toggle
+extension View {
+    @ViewBuilder
+    func applyIf<V: View>(
+        _ condition: Bool,
+        transform: (Self) -> V
+    ) -> some View {
+        if condition {
+            transform(self)
+        } else {
+            self
+        }
+    }
+}
+
+// Usage looks clean but is architecturally dangerous
+TabView { /* tabs */ }
+    .applyIf(hasTheme) { $0.tint(themeColor) }
+    // Toggling hasTheme destroys and recreates the ENTIRE TabView!
+```
+
+**Why this is harmful**: The `if/else` block returns different types, guaranteed to reset the view's lifetime whenever the condition toggles. This generic abstraction hides the identity-breaking branching at the call site, making it extremely hard to debug lost state, failed animations, or data reloads.
+
+**Fix**: Use stable modifier chains with ternary operators or modifier parameters:
+
+```swift
+// SAFE — single stable view, no identity break
+TabView { /* tabs */ }
+    .tint(hasTheme ? themeColor : nil)
+```
+
+---
+
+## Anti-Pattern: if/else in View Extensions
+
+```swift
+// DANGEROUS — resets identity of the view it's applied to
+extension View {
+    func themed(color: Color?) -> some View {
+        if let color {
+            self.tint(color)  // Branch A: TintModifier<Self>
+        } else {
+            self              // Branch B: Self
+        }
+    }
+}
+
+// Applied to a high-level container, this destroys everything inside:
+TabView { /* multiple tabs with state */ }
+    .themed(color: themeColor)  // Changing themeColor = full destruction
+
+// SAFE — stable chain, no branching
+extension View {
+    func themed(color: Color?) -> some View {
+        self.tint(color)  // nil tint is a no-op
+    }
+}
+```
+
+**Key principle from Natalia Panferova**: "With a few exceptions, it's almost always better to keep modifier chains stable by using ternary operators or optional-aware modifiers, ensuring the view hierarchy remains persistent even as the UI adapts to state changes."
+
+---
+
 ## Summary Checklist
 
 - [ ] Complex views extracted to separate `struct` subviews (not `@ViewBuilder` functions)
@@ -590,3 +785,8 @@ struct PublishView: View {
 - [ ] Business logic separated into testable models (when warranted)
 - [ ] Action handlers reference methods, not inline logic
 - [ ] Layout thrash avoided (flat hierarchies, gated geometry updates)
+- [ ] No `applyIf` or conditional modifier helpers that break view identity
+- [ ] View extensions avoid if/else branching (use ternary or optional-aware modifiers)
+- [ ] Grid/ViewThatFits/ContentUnavailableView/ControlGroup considered before generic stacks
+- [ ] Multi-slot containers use separate `@ViewBuilder` properties per slot
+- [ ] Custom styles used for structural changes, not just visual appearance

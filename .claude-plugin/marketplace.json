@@ -1,0 +1,49 @@
+{
+  "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
+  "name": "swiftui-expert-skill",
+  "version": "2.0.0",
+  "owner": {
+    "name": "SwiftyJourney",
+    "email": "jfdoradotr@icloud.com"
+  },
+  "metadata": {
+    "description": "Write, review, or improve SwiftUI code following best practices for state management, view composition, performance, accessibility, animations, and modern APIs including iOS 26 Liquid Glass."
+  },
+  "plugins": [
+    {
+      "name": "swiftui-expert",
+      "description": "Write, review, or improve SwiftUI code following best practices for state management, view composition, performance, accessibility, and modern APIs including iOS 26 Liquid Glass.",
+      "repository": "https://github.com/SwiftyJourney/swiftui-expert-skill",
+      "version": "2.0.0",
+      "author": {
+        "name": "SwiftyJourney",
+        "email": "jfdoradotr@icloud.com"
+      },
+      "license": "MIT",
+      "category": "development",
+      "keywords": [
+        "swiftui",
+        "ios",
+        "swift",
+        "apple",
+        "state-management",
+        "view-composition",
+        "performance",
+        "animations",
+        "accessibility",
+        "liquid-glass",
+        "ios26"
+      ],
+      "tags": [
+        "swiftui",
+        "ios",
+        "swift",
+        "apple-platforms",
+        "liquid-glass",
+        "accessibility",
+        "state-management"
+      ],
+      "source": "./swiftui-expert"
+    }
+  ]
+}

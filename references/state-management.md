@@ -417,7 +417,7 @@ struct SearchView: View {
 }
 ```
 
-**Important**: Using a ViewModel is a practical choice for managing complexity — it is not an endorsement of MVVM as an app-wide architecture. For architectural decisions, see `architecture-design-skill`.
+**Important**: Using a ViewModel is a practical choice for managing complexity — it is not an endorsement of MVVM as an app-wide architecture. For architectural decisions, see `ios-architecture-expert`.
 
 ---
 
@@ -499,6 +499,100 @@ struct ChildView: View {
 
 ---
 
+### Environment Action Pattern
+
+When passing actions through the environment, wrap closures in structs with `callAsFunction()`. Never store raw closures in `EnvironmentValues` — SwiftUI cannot compare closures, causing unnecessary re-renders.
+
+```swift
+// GOOD — struct-wrapped action
+struct AddToWatchListAction {
+    private let action: (Animal.ID) -> Void
+    
+    init(action: @escaping (Animal.ID) -> Void) {
+        self.action = action
+    }
+    
+    func callAsFunction(_ animalID: Animal.ID) {
+        action(animalID)
+    }
+}
+
+extension EnvironmentValues {
+    @Entry var addToWatchlist: AddToWatchListAction = .init { _ in }
+}
+
+// Usage in view — feels like a function call
+struct AnimalDetailView: View {
+    @Environment(\.addToWatchlist) private var addToWatchlist
+    
+    var body: some View {
+        Button("Add") { addToWatchlist(animalID) }
+    }
+}
+
+// BAD — raw closure in environment
+extension EnvironmentValues {
+    @Entry var addToWatchlist: (Animal.ID) -> Void = { _ in }
+    // Closures can't be compared — causes frequent re-evaluations
+}
+```
+
+### Avoid High-Frequency EnvironmentValues
+
+`EnvironmentValues` is a single large struct. Any update requires SwiftUI to compare its contents for every view reading any part of it. For data that updates at high frequency (scroll offsets, timers, sensor data), use `@Observable` instead.
+
+```swift
+// BAD — high-frequency scroll offset in EnvironmentValues
+extension EnvironmentValues {
+    @Entry var scrollOffset: Double = 0
+}
+
+// Even views that don't use scrollOffset pay the comparison cost
+// when it updates on every scroll frame
+
+// GOOD — wrap in @Observable for targeted updates
+@Observable @MainActor
+final class ScrollState {
+    var offset: Double = 0
+}
+
+// Pass via environment — only views reading .offset get updates
+ContentView()
+    .environment(scrollState)
+```
+
+### @State Initialization with task(id:)
+
+When a view model depends on a value from the parent, avoid initializing it in the view's `init`. `@State` only uses `initialValue` the first time — subsequent parent changes are ignored.
+
+```swift
+// BAD — state assignment skipped after first initialization
+struct HabitatInfo: View {
+    @State private var viewModel: HabitatViewModel
+    
+    init(habitatId: UUID) {
+        _viewModel = State(initialValue: HabitatViewModel(id: habitatId))
+        // If parent changes habitatId while this view exists,
+        // the new ID is IGNORED — viewModel keeps the old one
+    }
+}
+
+// GOOD — reactive to parent changes
+struct HabitatInfo: View {
+    let habitatId: UUID
+    @State private var viewModel: HabitatViewModel?
+    
+    var body: some View {
+        content
+            .task(id: habitatId) {
+                if viewModel?.id != habitatId {
+                    viewModel = HabitatViewModel(id: habitatId)
+                }
+            }
+    }
+}
+```
+
 ## Key Principles
 
 1. **Always prefer `@Observable` over `ObservableObject`** for new code
@@ -509,3 +603,6 @@ struct ChildView: View {
 6. **Never declare passed values as `@State` or `@StateObject`**
 7. Use a ViewModel when you need testability, complex state coordination, or async orchestration
 8. With `@Observable`, nested objects work fine; with `ObservableObject`, pass nested objects directly
+9. Wrap closures in structs with `callAsFunction()` for environment actions — never store raw closures in `EnvironmentValues`
+10. Avoid high-frequency data in `EnvironmentValues` — use `@Observable` for scroll offsets, timers, and sensor data
+11. Use `task(id:)` for reactive model initialization — never rely on `State(initialValue:)` for parent-dependent data
