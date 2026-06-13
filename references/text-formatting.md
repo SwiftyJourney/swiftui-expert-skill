@@ -139,6 +139,21 @@ Text(futureDate, style: .timer)
 // Output: "59:59" (counts down)
 ```
 
+### Stabilizing Live Timers
+
+**Rule:** Apply `.monospacedDigit()` to any `Text` using a self-updating date style (`.relative`, `.timer`, `.offset`).
+
+```swift
+// BAD - digits change width as numbers change, so the label wobbles
+Text(deadline, style: .timer)
+
+// GOOD - fixed-width digits keep the countdown from jittering
+Text(deadline, style: .timer)
+    .monospacedDigit()
+```
+
+**Why:** `.relative`, `.timer`, and `.offset` update in place every second. In most fonts, proportional digits have different widths (a `1` is narrower than an `8`), so the text reflows and shifts horizontally on each tick. `.monospacedDigit()` forces equal-width digits, holding the layout steady.
+
 ## String Searching and Comparison
 
 ### Localized String Comparison
@@ -213,23 +228,132 @@ if let range = attributedString.range(of: "World") {
 Text(attributedString)
 ```
 
-### Markdown in Text
+### Styling Part of a String with Text-Returning Modifiers
+
+**Rule:** Modifiers applied directly to a `Text` return another `Text`, so a styled fragment can be embedded inside a string interpolation.
 
 ```swift
-// Simple markdown
-Text("This is **bold** and this is *italic*")
+// GOOD - style one word without building an AttributedString
+Text("See you on \(Text("Friday").bold())")
 
-// With links
+let due = Text("overdue").foregroundStyle(.red).italic()
+Text("Status: \(due)")
+
+// BAD - this won't compile; view modifiers return `some View`, not Text
+Text("See you on \(Text("Friday").padding())")
+```
+
+**Why:** `Text` has its own overloads of `.bold()`, `.italic()`, `.foregroundStyle(_:)`, `.font(_:)`, `.strikethrough()`, etc. that return `Text` rather than `some View`. Because the result is still a `Text`, it can be interpolated into another `Text` literal — letting you style only part of a string without constructing an `AttributedString`. View modifiers like `.padding()` or `.background()` return `some View` and cannot be re-interpolated.
+
+### SwiftUI AttributedString Scope
+
+**Rule:** When a `Text` renders an `AttributedString`, only attributes in SwiftUI's attribute scope take effect; attributes from other scopes are silently dropped.
+
+```swift
+var attributed = AttributedString("Sale")
+attributed.foregroundColor = .red          // honored (SwiftUI scope)
+attributed.font = .headline                // honored
+attributed.kern = 1.5                      // honored
+// attributed.uiKit / .appKit attributes -> ignored when Text renders it
+Text(attributed)
+```
+
+**Why:** SwiftUI's scope supports a fixed subset: `foregroundColor`, `backgroundColor`, `font`, `kern`, `tracking`, `underlineStyle`, `strikethroughStyle`, `baselineOffset`, plus Foundation attributes like links and inline presentation intent, and the accessibility attributes. Attributes you set from the UIKit or AppKit scopes have no SwiftUI equivalent in this list, so `Text` ignores them rather than warning. Build attributed text using only SwiftUI/Foundation-scope attributes to avoid styling that silently disappears.
+
+### Markdown in Text
+
+**Rule:** `Text` renders only INLINE Markdown. Block-level syntax (headers, bullet/numbered lists, fenced code blocks, blockquotes) is NOT rendered — it appears as literal characters.
+
+```swift
+// GOOD - inline styling renders
+Text("This is **bold**, *italic*, ~~struck~~, and `code`")
 Text("Visit [Apple](https://apple.com) for more info")
 
-// Multiline markdown
+// BAD - block syntax is shown verbatim, not rendered
 Text("""
 # Title
-This is a paragraph with **bold** text.
 - Item 1
 - Item 2
 """)
+// Renders the literal text: "# Title", "- Item 1", "- Item 2"
 ```
+
+**Supported inline syntax:** `**bold**`, `*italic*`, `~~strikethrough~~`, inline `` `code` `` spans, and `[link](url)`.
+
+**Why:** SwiftUI parses a `Text` literal as an inline `AttributedString`. There is no block layout engine behind `Text`, so anything that would require a new paragraph, list item, or code block stays as plain characters. For block-level Markdown, render to an `AttributedString` yourself or compose multiple views.
+
+## Localization
+
+### Literal vs Variable Initializer Trap
+
+**Rule:** A string LITERAL passed to `Text` binds a different initializer than a `String` VARIABLE. They are not interchangeable.
+
+```swift
+// GOOD - literal binds the LocalizedStringKey initializer
+Text("Welcome **back**")
+// -> auto-localized (looked up in the string catalog),
+//    parses inline Markdown, supports rich interpolation
+
+// BAD (often unintended) - variable binds the StringProtocol initializer
+let message = "Welcome **back**"
+Text(message)
+// -> rendered verbatim: no localization, no Markdown ("**back**" shows literally)
+```
+
+**Why:** `Text(_:)` is overloaded. A literal resolves to `init(_ key: LocalizedStringKey)`; a `String`/`StringProtocol` value resolves to `init(_ content: some StringProtocol)`, which renders exactly as-is. Refactoring an inline literal into a `let` silently disables localization and Markdown — and the compiler emits no warning. To keep localization on a variable, type it as `LocalizedStringKey` or wrap with `Text(verbatim:)` only when you explicitly want raw output.
+
+### Localizing Strings Outside Views
+
+**Rule:** Use `String(localized:comment:)` for user-facing strings in models and helpers so they still enter the string catalog.
+
+```swift
+// GOOD - in a model/helper, outside any View
+let title = String(localized: "Order summary", comment: "Cart screen header")
+
+// In a View, give translators context and route to a catalog/bundle
+Text("Order summary", comment: "Cart screen header")
+Text("Order summary", tableName: "Checkout")        // separate .strings catalog
+Text("Order summary", bundle: .module)              // another module/framework's translations
+```
+
+**Why:** Only `LocalizedStringKey`-bound `Text` and `String(localized:)` are picked up by the catalog extractor. A bare `String("...")` in a model never gets translated. `comment:` gives translators disambiguation, `tableName:` splits large apps into multiple catalogs, and `bundle:` looks up a string defined in another module or framework.
+
+## Pluralization and Grammar Agreement
+
+### Automatic Inflection
+
+**Rule:** Use inline automatic grammar agreement to pluralize from an interpolated count — no `.stringsdict` required.
+
+```swift
+// GOOD - inflects the noun to agree with the count
+Text("^[\(count) item](inflect: true)")
+// count == 1 -> "1 item"
+// count == 5 -> "5 items"
+```
+
+**Why:** The `^[\(n) noun](inflect: true)` markup tells Foundation to apply automatic grammar agreement, choosing the correct plural form for the current language. This handles the common count case without authoring an explicit plural-rule catalog, and works in languages with more than two plural categories.
+
+## List and Measurement Formatting
+
+### Grammatical Lists
+
+```swift
+let items = ["apples", "oranges", "pears"]
+
+Text("\(items, format: .list(type: .and))")
+// Output: "apples, oranges, and pears" (locale-aware separators and conjunction)
+```
+
+### Measurements and Units
+
+```swift
+let distance = Measurement(value: 5, unit: UnitLength.kilometers)
+
+Text("\(distance, format: .measurement(width: .wide))")
+// Output: "5 kilometers" (en_US) / "5 Kilometer" (de_DE), localized unit + value
+```
+
+**Why:** `.list(type:)` and `.measurement(width:)` are locale-aware `FormatStyle`s, like `.number`/`.currency`/`.dateTime`. They pick the right separators, conjunctions, unit names, and even unit conversions for the user's locale instead of hardcoding English punctuation or units.
 
 ## Text Measurement
 
@@ -279,7 +403,13 @@ struct MeasuredText: View {
 - [ ] Use `localizedStandardContains()` for user-input search
 - [ ] Use `localizedStandardCompare()` for locale-aware sorting
 - [ ] Use Text concatenation or AttributedString for styled text
-- [ ] Use markdown syntax for simple text formatting
+- [ ] Use INLINE markdown only (`**bold**`, `*italic*`, `` `code` ``, links); block syntax is not rendered
+- [ ] Keep literals (not `String` variables) for auto-localization and Markdown
+- [ ] Use `String(localized:comment:)` for user-facing strings outside views
+- [ ] Use `^[\(count) item](inflect: true)` for count-based pluralization
+- [ ] Use `.list(type:)` and `.measurement(width:)` for locale-aware lists and units
+- [ ] Add `.monospacedDigit()` to live `.relative`/`.timer`/`.offset` text
+- [ ] Use Text-returning modifiers to style fragments inside interpolation
 - [ ] All formatting respects user's locale and preferences
 
 **Why**: Modern format parameters are type-safe, localization-aware, and integrate better with SwiftUI's text rendering.

@@ -6,7 +6,12 @@ Semantic styling, adaptive spacing, accessibility representations, and standard 
 - [Standard Components First](#standard-components-first)
 - [Semantic Styling](#semantic-styling)
 - [Adaptive Spacing with @ScaledMetric](#adaptive-spacing-with-scaledmetric)
+- [Content Legibility Settings](#content-legibility-settings)
+- [Grouping for VoiceOver](#grouping-for-voiceover)
 - [Accessibility Representation for Custom Controls](#accessibility-representation-for-custom-controls)
+- [Custom Interactive (Non-Button) Elements](#custom-interactive-non-button-elements)
+- [Decorative Content](#decorative-content)
+- [Canvas and Raw Drawing](#canvas-and-raw-drawing)
 - [Custom Styles Preserve Accessibility](#custom-styles-preserve-accessibility)
 - [Platform-Specific Adjustments](#platform-specific-adjustments)
 
@@ -153,6 +158,66 @@ By default, `@ScaledMetric` scales relative to the `body` text style. Use `relat
 
 ---
 
+## Content Legibility Settings
+
+Three accessibility settings the system handles for its own components but leaves to YOU for custom UI. Read each from the environment.
+
+```swift
+// 1. Button Shapes — system buttons gain shape cues automatically; custom styles do NOT
+struct LinkButtonStyle: ButtonStyle {
+    @Environment(\.accessibilityShowButtonShapes) private var showShapes
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .underline(showShapes)            // add a shape cue when enabled
+    }
+}
+
+// 2. Reduce Transparency — system materials opacify automatically; hand-rolled translucency does not
+struct Card<Content: View>: View {
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+    let content: Content
+    var body: some View {
+        content.background(reduceTransparency ? AnyShapeStyle(.background)
+                                              : AnyShapeStyle(.ultraThinMaterial))
+    }
+}
+
+// 3. Accessibility text sizes — @ScaledMetric scales numbers; it can't reflow layout
+struct Row: View {
+    @Environment(\.dynamicTypeSize) private var typeSize
+    var body: some View {
+        let layout = typeSize.isAccessibilitySize
+            ? AnyLayout(VStackLayout(alignment: .leading))
+            : AnyLayout(HStackLayout())
+        layout { Icon(); Title(); Spacer() }
+    }
+}
+```
+
+**Rule:** Guard custom button cues, custom translucency, and layout for `isAccessibilitySize` yourself — the system only auto-adapts its own components.
+
+**Why**: `@ScaledMetric` resizes a value but can't turn an `HStack` into a `VStack`; at accessibility sizes a horizontal row clips or truncates, so branch the container (here via `AnyLayout`, which preserves subview identity) when `dynamicTypeSize.isAccessibilitySize` is true.
+
+---
+
+## Grouping for VoiceOver
+
+**Rule:** Merge a related label+value cluster into one element with `accessibilityElement(children: .combine)` so VoiceOver reads it as a single statement instead of forcing swipes between fragments.
+
+```swift
+// GOOD - read as one element: "Downloads, 248 files"
+HStack {
+    Text("Downloads")
+    Spacer()
+    Text("248 files")
+}
+.accessibilityElement(children: .combine)
+```
+
+**Why**: by default each `Text` is its own accessibility element, so the user swipes through disconnected fragments. `.combine` merges the descendants' labels/values/traits into one. (`.contain` keeps children as a navigable group; `.ignore` drops them so you can supply your own label.)
+
+---
+
 ## Accessibility Representation for Custom Controls
 
 When building highly custom controls that can't use a style protocol, provide an `accessibilityRepresentation` using a standard system component. This ensures VoiceOver users interact with the control as if it were native.
@@ -196,6 +261,68 @@ struct SegmentedControl: View {
 - Custom drawing with `Canvas` — always needs `accessibilityRepresentation`
 - Custom gesture-based controls — map to standard increment/decrement
 - Custom segmented controls, sliders, or pickers that don't use style protocols
+
+---
+
+## Custom Interactive (Non-Button) Elements
+
+When a raw tap gesture is genuinely unavoidable (prefer a real `Button` first — see [Standard Components First](#standard-components-first)), a tappable `Image`/shape is invisible-as-interactive to VoiceOver. Restore it with the trait + value + hint trio.
+
+```swift
+// BAD - VoiceOver sees an image, not a control
+Image(systemName: isFavorite ? "star.fill" : "star")
+    .onTapGesture { isFavorite.toggle() }
+
+// GOOD - announced and operable as a button
+Image(systemName: isFavorite ? "star.fill" : "star")
+    .onTapGesture { isFavorite.toggle() }
+    .accessibilityAddTraits(.isButton)              // signals interactivity
+    .accessibilityLabel("Favorite")
+    .accessibilityValue(isFavorite ? "On" : "Off")  // current state
+    .accessibilityHint("Toggles whether this item is a favorite")  // what it does
+```
+
+**Why**: traits tell assistive tech the element is operable, the value conveys its current state, and the hint explains the outcome — the three pieces a real `Button` provides for free.
+
+---
+
+## Decorative Content
+
+**Rule:** Remove purely decorative views from the accessibility tree so VoiceOver isn't cluttered, and give meaningful images a real label (SwiftUI otherwise defaults an image's label to its asset name).
+
+```swift
+Image("hero-flourish")
+    .accessibilityHidden(true)        // skip decorative art entirely
+
+Image(decorative: "divider")          // asset image with no announced label
+
+Image("tui-bird")
+    .accessibilityLabel("A tūī perched on a flax flower")  // override the "tui-bird, image" default
+```
+
+**Why**: undescribed decorative images announce noise ("image"); meaningful images announce their file name unless you supply a label conveying what sighted users see.
+
+---
+
+## Canvas and Raw Drawing
+
+**Rule:** `Canvas` (and raw shape/gesture compositions) contribute **nothing** to the accessibility tree — their contents are invisible to VoiceOver, and a gesture-only control also fails AssistiveTouch/Switch Control (which drive controls via discrete steps). Provide `accessibilityRepresentation`, or add explicit traits plus `accessibilityAdjustableAction`.
+
+```swift
+// Canvas-drawn rating with no native semantics
+Canvas { context, size in /* draw stars for `rating` */ }
+    .accessibilityLabel("Rating")
+    .accessibilityValue("\(rating) of 5")
+    .accessibilityAdjustableAction { direction in
+        switch direction {
+        case .increment: rating = min(5, rating + 1)
+        case .decrement: rating = max(0, rating - 1)
+        @unknown default: break
+        }
+    }
+```
+
+**Why**: VoiceOver and Switch Control can't see pixels — without a representation or an adjustable action, custom-drawn controls are unusable for assistive-tech users even though they look complete in a sighted demo.
 
 ---
 
@@ -284,4 +411,8 @@ extension View {
 - [ ] Custom controls use `accessibilityRepresentation` when style protocols unavailable
 - [ ] Custom styles preferred over manual reimplementation when style protocol exists
 - [ ] Platform checks extracted into custom modifiers (not inline in view body)
-- [ ] Interface tested at largest and smallest Dynamic Type sizes
+- [ ] Custom interactive (non-Button) elements have `.isButton` trait + value + hint
+- [ ] Decorative images hidden (`accessibilityHidden`/`Image(decorative:)`); meaningful images have a real label
+- [ ] `Canvas`/custom-drawn controls expose `accessibilityRepresentation` or an adjustable action
+- [ ] Custom button shapes / translucency / layout adapt to Button Shapes, Reduce Transparency, and accessibility text sizes
+- [ ] Interface tested at largest and smallest Dynamic Type sizes, and under Reduce Transparency, Increased Contrast, and Smart Invert

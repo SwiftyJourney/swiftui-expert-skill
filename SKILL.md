@@ -1,6 +1,6 @@
 ---
 name: swiftui-expert
-version: 2.0.0
+version: 2.1.0
 description: Write, review, or improve SwiftUI code following best practices
   for state management, view composition, performance, accessibility, and modern APIs.
   Use when building SwiftUI features, refactoring views, reviewing code quality,
@@ -50,6 +50,11 @@ When this skill is active, follow these rules **strictly**:
 | Animation is janky or missing | Implicit vs explicit | Match animation to state change site | `references/animation-basics.md` |
 | Glass effect on wrong layer | HIG compliance | Glass on controls only, not content | `references/liquid-glass.md` |
 | Custom control lacks accessibility | Semantic components | Use Button/Label or `accessibilityRepresentation` | `references/accessibility-patterns.md` |
+| Tap/gesture not firing inside a scroll or list | Gesture precedence | Use `highPriorityGesture`/`simultaneousGesture` | `references/gestures.md` |
+| Async load leaks, re-fires, or janks the UI | Task lifecycle & isolation | `.task`/`.task(id:)`; offload heavy work with `@concurrent` | `references/data-loading-and-tasks.md` |
+| Need a layout stacks/grids can't express | Layout negotiation | Conform to the `Layout` protocol | `references/layout-protocol.md` |
+| App body won't compile or state leaks across windows | Scene structure | App body returns `some Scene`; `WindowGroup` is per-window | `references/app-lifecycle-and-scenes.md` |
+| Persisting settings or restoring per-scene state | Persistence mechanism | `@AppStorage`/`@SceneStorage`/SwiftData/`PreferenceKey` | `references/data-persistence.md` |
 
 ---
 
@@ -64,6 +69,11 @@ When this skill is active, follow these rules **strictly**:
 | Animations | `withAnimation` for events, `.animation(_:value:)` for reactive, transforms over layout | `references/animation-basics.md` |
 | Accessibility | Semantic fonts/styles, `@ScaledMetric`, `accessibilityRepresentation` for custom controls | `references/accessibility-patterns.md` |
 | Liquid Glass | Controls/navigation only (HIG); `Glass.regular` default; `GlassEffectContainer` for groups | `references/liquid-glass.md` |
+| Data Loading | `.task` over `.onAppear{Task{}}`; `.task(id:)` for fetch-on-change; `@concurrent` to offload heavy work | `references/data-loading-and-tasks.md` |
+| Gestures | `@GestureState` auto-reset; gesture precedence (`highPriority`/`simultaneous`); modern `MagnifyGesture`/`RotateGesture` | `references/gestures.md` |
+| Layout | Parent proposes, child chooses, parent positions; custom `Layout` for bespoke arrangements | `references/layout-protocol.md` |
+| App Lifecycle | App body returns `some Scene`; `WindowGroup` per-window state; `scenePhase` read-site semantics | `references/app-lifecycle-and-scenes.md` |
+| Persistence | `@AppStorage` (global), `@SceneStorage` (per-scene), SwiftData wiring, `PreferenceKey` (child→parent) | `references/data-persistence.md` |
 
 ---
 
@@ -92,6 +102,8 @@ When this skill is active, follow these rules **strictly**:
 | `NavigationView` | `NavigationStack` |
 | `onChange(of:) { value in }` | `onChange(of:) { old, new in }` or `onChange(of:) { }` |
 | `GeometryReader` | `containerRelativeFrame()` or `visualEffect()` |
+| `MagnificationGesture` | `MagnifyGesture` |
+| `RotationGesture` | `RotateGesture` |
 
 > Full table: [modern-apis.md](references/modern-apis.md)
 
@@ -158,23 +170,27 @@ Open the smallest reference that matches the question:
 
 - **State & Data Flow**
   - [state-management.md](references/state-management.md) — property wrappers, data flow, when to use a ViewModel
-- **View Structure**
+  - [data-persistence.md](references/data-persistence.md) — `@AppStorage`, `@SceneStorage`, SwiftData wiring, `PreferenceKey`
+  - [data-loading-and-tasks.md](references/data-loading-and-tasks.md) — `.task`/`.task(id:)` entry points, `@concurrent` offloading, cancellation
+- **View Structure & Layout**
   - [view-composition.md](references/view-composition.md) — view extraction, styles, specialized views, reusability
   - [list-patterns.md](references/list-patterns.md) — ForEach identity, stability, list best practices
+  - [layout-protocol.md](references/layout-protocol.md) — layout negotiation, custom `Layout`, alignment guides
 - **Modern APIs & Navigation**
   - [modern-apis.md](references/modern-apis.md) — modern API usage and deprecated replacements
   - [navigation-patterns.md](references/navigation-patterns.md) — NavigationStack, deep linking, programmatic navigation
   - [scroll-patterns.md](references/scroll-patterns.md) — ScrollView patterns and programmatic scrolling
   - [text-formatting.md](references/text-formatting.md) — modern text formatting and string operations
+- **App Structure**
+  - [app-lifecycle-and-scenes.md](references/app-lifecycle-and-scenes.md) — App protocol, scenes, `WindowGroup`, `scenePhase`
 - **Performance & Optimization**
   - [performance-patterns.md](references/performance-patterns.md) — optimization techniques and anti-patterns
   - [image-optimization.md](references/image-optimization.md) — AsyncImage, image downsampling
-- **Animation**
+- **Animation & Interaction**
   - [animation-basics.md](references/animation-basics.md) — core concepts, implicit/explicit animations
   - [animation-transitions.md](references/animation-transitions.md) — transitions, custom transitions, Animatable
   - [animation-advanced.md](references/animation-advanced.md) — transactions, phase/keyframe, completion handlers
+  - [gestures.md](references/gestures.md) — gesture types, `@GestureState`, composition & precedence
 - **Accessibility & Platform**
   - [accessibility-patterns.md](references/accessibility-patterns.md) — semantic styling, adaptive spacing, VoiceOver
   - [liquid-glass.md](references/liquid-glass.md) — iOS 26+ Liquid Glass API and HIG guidance
-- **Navigation index**
-  - [references/_index.md](references/_index.md)

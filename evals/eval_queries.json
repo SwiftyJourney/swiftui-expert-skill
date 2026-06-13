@@ -1,0 +1,23 @@
+[
+  { "query": "My SwiftUI list re-renders every row whenever one row's toggle flips — how do I narrow the updates?", "should_trigger": true, "split": "train" },
+  { "query": "Build a custom layout that arranges tag chips in a wrapping flow.", "should_trigger": true, "split": "train" },
+  { "query": "This screen fetches in onAppear and the UI freezes while it decodes a big JSON payload — fix it.", "should_trigger": true, "split": "train" },
+  { "query": "tap on my card isn't firing when it's inside a ScrollView", "should_trigger": true, "split": "train" },
+  { "query": "Refactor this 300-line view body into smaller pieces without hurting performance.", "should_trigger": true, "split": "train" },
+  { "query": "Persist the last selected tab across app launches in my SwiftUI app.", "should_trigger": true, "split": "train" },
+  { "query": "My @main App struct won't compile — it complains about a 'Scene' type.", "should_trigger": true, "split": "validation" },
+  { "query": "Make this custom-drawn slider work with VoiceOver.", "should_trigger": true, "split": "validation" },
+  { "query": "Switch this HStack to a VStack automatically at the largest accessibility text sizes.", "should_trigger": true, "split": "validation" },
+  { "query": "Update this view to modern SwiftUI APIs — it still uses foregroundColor and NavigationView.", "should_trigger": true, "split": "validation" },
+
+  { "query": "Where should networking and the composition root live in this app, and how do I inject dependencies without a framework?", "should_trigger": false, "split": "train" },
+  { "query": "Split this monolith into Swift packages with protocol boundaries between layers.", "should_trigger": false, "split": "train" },
+  { "query": "Embed this SwiftUI view inside my existing UIKit view controller with a hosting controller.", "should_trigger": false, "split": "train" },
+  { "query": "Wrap my UIKit MKMapView so I can use it from SwiftUI.", "should_trigger": false, "split": "train" },
+  { "query": "What's the difference between map, flatMap, and compactMap on a Swift array?", "should_trigger": false, "split": "train" },
+  { "query": "Write a function with typed throws and handle the specific error case.", "should_trigger": false, "split": "validation" },
+  { "query": "Turn this vague feature request into use cases with acceptance criteria.", "should_trigger": false, "split": "validation" },
+  { "query": "Migrate these XCTest cases to Swift Testing with #expect and #require.", "should_trigger": false, "split": "validation" },
+  { "query": "Decode this JSON response into a Codable struct.", "should_trigger": false, "split": "validation" },
+  { "query": "Set up a GitHub Actions workflow to build and test my iOS app.", "should_trigger": false, "split": "validation" }
+]

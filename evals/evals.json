@@ -1,0 +1,44 @@
+{
+  "skill_name": "swiftui-expert",
+  "description": "Output-quality evals targeting what this skill uniquely teaches, not generic SwiftUI a bare LLM already writes. Assertions are designed to FAIL for a bare agent and PASS only when the skill's specific guidance is applied: offloading heavy work with @concurrent (not just Task), the Layout protocol for bespoke arrangements, and restoring accessibility on custom interactive elements.",
+  "evals": [
+    {
+      "id": "fix-onappear-task-decode-on-main",
+      "prompt": "This SwiftUI screen hangs for a moment when it appears. Fix it.\n\n```swift\nstruct ReportView: View {\n    @State private var rows: [Row] = []\n    let url: URL\n    var body: some View {\n        List(rows) { RowView($0) }\n            .onAppear {\n                Task {\n                    let (data, _) = try! await URLSession.shared.data(from: url)\n                    rows = expensiveDecodeAndAggregate(data)  // heavy CPU work\n                }\n            }\n    }\n}\n```",
+      "expected_output": "A refactor that (a) moves the load to `.task` so it is lifecycle-managed and auto-cancelled, (b) recognizes that the `Task`/`.task` runs on the main actor and therefore moves the heavy `expensiveDecodeAndAggregate` off-main by marking it `@concurrent` (awaiting it and assigning back on the main actor), (c) shows a loading/placeholder state, and (d) does not claim that wrapping work in `Task` alone moves it off the main thread.",
+      "assertions": [
+        "Replaces `.onAppear { Task { ... } }` with the `.task` modifier (or `.task(id:)`), not a manual Task in onAppear",
+        "Offloads the heavy CPU work (`expensiveDecodeAndAggregate`) off the main actor by marking that function/work `@concurrent` (or otherwise explicitly running it off the main actor) — NOT by leaving it in a plain `Task`/`.task` on a @MainActor view and assuming that backgrounds it",
+        "The explanation states (or the code structure reflects) that a `Task`/`.task` created in a @MainActor context inherits main-actor isolation, so heavy synchronous work stays on the main thread unless explicitly offloaded",
+        "Final UI mutation (assigning `rows`) happens back on the main actor after the offloaded work returns",
+        "Adds a loading/placeholder state (e.g. a `ProgressView` while `rows` is empty) rather than rendering a broken empty list before data arrives",
+        "Does not introduce `DispatchQueue.global`/`DispatchQueue.main.async` as the fix (uses structured concurrency)"
+      ]
+    },
+    {
+      "id": "wrapping-flow-layout",
+      "prompt": "I have a row of tag chips that overflow the screen width. I want them to wrap onto multiple lines, left-aligned, like a flow layout. Build it in SwiftUI.",
+      "expected_output": "A custom layout conforming to the `Layout` protocol (implementing `sizeThatFits` and `placeSubviews`, positioning each child via the `LayoutSubview` proxy's `place(at:anchor:proposal:)`), used like a container around a ForEach of chips — not a fragile GeometryReader + manual frame-math hack.",
+      "assertions": [
+        "Defines a type conforming to the `Layout` protocol",
+        "Implements both required methods: `sizeThatFits(proposal:subviews:cache:)` and `placeSubviews(in:proposal:subviews:cache:)`",
+        "Measures children via the `LayoutSubview` proxy (`subview.sizeThatFits(_:)`) and positions them with `subview.place(at:anchor:proposal:)` — it does not read or mutate the child views directly",
+        "Wraps to a new row when the accumulated width exceeds the proposed container width (actual flow/wrapping logic, not a single line)",
+        "Does NOT implement the wrapping with nested GeometryReader + hardcoded frame math or `.alignmentGuide` width hacks as the primary mechanism",
+        "The custom layout is used like a normal container (e.g. `FlowLayout { ForEach(tags) { TagChip($0) } }`)"
+      ]
+    },
+    {
+      "id": "accessible-custom-toggle",
+      "prompt": "This favorite control works visually but a VoiceOver user can't tell what it is or operate it. Make it accessible.\n\n```swift\nImage(systemName: isFavorite ? \"star.fill\" : \"star\")\n    .onTapGesture { isFavorite.toggle() }\n```",
+      "expected_output": "Either replace the tappable Image with a real `Button` (preferred), or — if a raw gesture is kept — restore the control semantics with the `.isButton` trait plus an accessibility value (current state) and hint (what interacting does). Just adding an `accessibilityLabel` is not sufficient.",
+      "assertions": [
+        "Either uses a real `Button` (with a `.labelStyle(.iconOnly)`/image label) OR keeps the gesture but adds `accessibilityAddTraits(.isButton)`",
+        "Conveys the current on/off STATE to VoiceOver via `accessibilityValue(_:)` (or by using a control whose state is announced automatically) — not just a static label",
+        "Provides an `accessibilityLabel` describing the control (e.g. \"Favorite\")",
+        "The solution is more than a bare `accessibilityLabel` — it makes the element announce as an operable control with its state",
+        "If a Button is used, the favorite toggle logic moves into the button's action"
+      ]
+    }
+  ]
+}

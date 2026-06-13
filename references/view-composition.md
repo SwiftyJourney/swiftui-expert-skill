@@ -766,7 +766,7 @@ extension View {
 }
 ```
 
-**Key principle from Natalia Panferova**: "With a few exceptions, it's almost always better to keep modifier chains stable by using ternary operators or optional-aware modifiers, ensuring the view hierarchy remains persistent even as the UI adapts to state changes."
+**Key principle**: keep modifier chains stable. Drive appearance changes with ternary operators or optional-aware modifiers (a `nil`/no-op value) rather than branching the hierarchy, so the view's structural identity — and its state and in-flight animations — persists as the UI adapts to state.
 
 ---
 
