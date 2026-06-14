@@ -36,6 +36,18 @@ npx skills add SwiftyJourney/swiftui-expert-skill
 - [Windsurf](https://codeium.com/windsurf)
 - Any agent supporting the `skills/` convention
 
+## What the Skill Covers
+
+| Area | Topics |
+|---|---|
+| State & Data Flow | Property wrappers, persistence (`@AppStorage`/`@SceneStorage`/SwiftData/`PreferenceKey`), data loading (`.task`/`.task(id:)`, `@concurrent`) |
+| View Structure & Layout | Composition and extraction, list identity, the custom `Layout` protocol |
+| Modern APIs & Navigation | iOS 18/26 replacements, `NavigationStack`/`NavigationSplitView`, scroll, text & localization |
+| App Structure | App protocol, scenes, `WindowGroup`, `scenePhase` |
+| Performance | Structural identity, view-update cost, `AsyncImage`/image optimization |
+| Animation & Interaction | Implicit/explicit, transitions, `PhaseAnimator`/`KeyframeAnimator`, gestures |
+| Accessibility & Platform | Semantic styling, `@ScaledMetric`, VoiceOver, iOS 26 Liquid Glass |
+
 ## Quick Start
 
 Try these prompts:
@@ -82,8 +94,10 @@ references/
 
 ## Related Skills
 
-- [iOS Architecture Expert](https://github.com/SwiftyJourney/ios-architecture-expert-skill) — Clean architecture, composition root, protocol-oriented design
-- [Requirements Engineering](https://github.com/SwiftyJourney/requirements-engineering-skill) — BDD stories and use cases
+- [iOS Architecture Expert](https://github.com/SwiftyJourney/ios-architecture-expert-skill) — Clean modular architecture: composition root, protocol boundaries, generic presenters, Swift 6 concurrency
+- [Requirements Engineering](https://github.com/SwiftyJourney/requirements-engineering-skill) — Turn vague requirements into testable specs: BDD, use cases, contracts, diagrams
+- [SwiftUI ⇄ UIKit Interop](https://github.com/SwiftyJourney/swiftui-uikit-interop-skill) — Bridge SwiftUI and UIKit: hosting controllers, representables, data across the boundary
+- [Swift Language Expert](https://github.com/SwiftyJourney/swift-language-expert-skill) — Non-obvious Swift language & standard-library techniques
 
 ## Credits
 

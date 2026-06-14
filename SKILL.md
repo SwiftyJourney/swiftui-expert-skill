@@ -1,22 +1,23 @@
 ---
 name: swiftui-expert
-version: 2.1.0
 description: Write, review, or improve SwiftUI code following best practices
   for state management, view composition, performance, accessibility, and modern APIs.
   Use when building SwiftUI features, refactoring views, reviewing code quality,
   or adopting modern SwiftUI patterns.
-author: SwiftyJourney
-tags:
-  - swiftui
-  - ios
-  - apple
-  - state-management
-  - view-composition
-  - performance
-  - animations
-  - accessibility
-  - liquid-glass
-  - swift
+metadata:
+  version: 2.1.0
+  author: SwiftyJourney
+  tags:
+    - swiftui
+    - ios
+    - apple
+    - state-management
+    - view-composition
+    - performance
+    - animations
+    - accessibility
+    - liquid-glass
+    - swift
 ---
 
 # SwiftUI Expert Skill
