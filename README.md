@@ -69,27 +69,30 @@ The agent will follow the skill's workflow decision tree, reference the correct 
 ## Skill File Structure
 
 ```
-SKILL.md                            # Hub: behavior contract, diagnostic table, reference router
-references/
-├── state-management.md             # Property wrapper selection guide
-├── data-persistence.md             # @AppStorage, @SceneStorage, SwiftData, PreferenceKey
-├── data-loading-and-tasks.md       # .task/.task(id:) entry points, @concurrent, cancellation
-├── view-composition.md             # View extraction rules and patterns
-├── layout-protocol.md              # Layout negotiation, custom Layout, alignment guides
-├── modern-apis.md                  # iOS 18/26 API replacements
-├── performance-patterns.md         # Optimization techniques and anti-patterns
-├── list-patterns.md                # Stable identity, ForEach, LazyVStack
-├── navigation-patterns.md          # NavigationStack, programmatic navigation
-├── app-lifecycle-and-scenes.md     # App protocol, scenes, WindowGroup, scenePhase
-├── animation-basics.md             # withAnimation, implicit/explicit
-├── animation-transitions.md        # AnyTransition, matched geometry
-├── animation-advanced.md           # PhaseAnimator, KeyframeAnimator
-├── gestures.md                     # Gesture types, @GestureState, composition & precedence
-├── scroll-patterns.md              # scrollPosition, scrollTargetBehavior
-├── text-formatting.md              # AttributedString, formatting, localization
-├── image-optimization.md           # AsyncImage, caching strategies
-├── accessibility-patterns.md       # Semantic styling, @ScaledMetric, VoiceOver
-└── liquid-glass.md                 # iOS 26 Liquid Glass API and HIG guidance
+skills/swiftui-expert/                # the skill — this is what ships
+├── SKILL.md                        # Hub: behavior contract, diagnostic table, reference router
+└── references/
+    ├── state-management.md             # Property wrapper selection guide
+    ├── data-persistence.md             # @AppStorage, @SceneStorage, SwiftData, PreferenceKey
+    ├── data-loading-and-tasks.md       # .task/.task(id:) entry points, @concurrent, cancellation
+    ├── view-composition.md             # View extraction rules and patterns
+    ├── layout-protocol.md              # Layout negotiation, custom Layout, alignment guides
+    ├── modern-apis.md                  # iOS 18/26 API replacements
+    ├── performance-patterns.md         # Optimization techniques and anti-patterns
+    ├── list-patterns.md                # Stable identity, ForEach, LazyVStack
+    ├── navigation-patterns.md          # NavigationStack, programmatic navigation
+    ├── app-lifecycle-and-scenes.md     # App protocol, scenes, WindowGroup, scenePhase
+    ├── animation-basics.md             # withAnimation, implicit/explicit
+    ├── animation-transitions.md        # AnyTransition, matched geometry
+    ├── animation-advanced.md           # PhaseAnimator, KeyframeAnimator
+    ├── gestures.md                     # Gesture types, @GestureState, composition & precedence
+    ├── scroll-patterns.md              # scrollPosition, scrollTargetBehavior
+    ├── text-formatting.md              # AttributedString, formatting, localization
+    ├── image-optimization.md           # AsyncImage, caching strategies
+    ├── accessibility-patterns.md       # Semantic styling, @ScaledMetric, VoiceOver
+    └── liquid-glass.md                 # iOS 26 Liquid Glass API and HIG guidance
+evals/                              # Trigger eval queries + output-quality tests (repo-only)
+.claude-plugin/                     # plugin + marketplace manifests (repo-only)
 ```
 
 ## Related Skills
